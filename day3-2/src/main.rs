@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 if parts.len() >= 2 {
                     println!("--> {:?} {:?} is a part number", val, parts);
-                    sum += parts.iter().fold(1, |a, v| a * v);
+                    sum += parts.iter().product::<i32>();
                 }
             }
         }
