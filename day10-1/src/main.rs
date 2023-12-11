@@ -23,50 +23,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--> {} {}", pipes.len(), pipes[0].len());
 
     let mut stack = vec![];
-    let mut all_stack = vec![];
 
     for line in pipes.iter() {
         for pipe in line.iter() {
             if matches!(pipe.kind, Kind::ST) {
-                stack.push((pipe.clone(), 0));
+                stack.push(pipe.clone());
                 break;
             }
         }
     }
     println!("using start position ({:?})", stack.last().unwrap());
     while !stack.is_empty() {
-        if let Some((top, offset)) = stack.last_mut() {
-            if *offset >= top.paths.len() {
-                stack.pop();
+        if let Some(top) = stack.last_mut() {
+            if let Some((x, y)) = top.next_p() {
+                let mut next = pipes.get(x).and_then(|v| v.get(y)).unwrap().clone();
+
+                next.remove(top.coord);
+                if stack.first().unwrap().coord == next.coord {
+                    println!(
+                        "start is {:?}, end is {:?}, length = {}, res = {}",
+                        stack[0],
+                        stack[stack.len() - 2],
+                        stack.len(),
+                        stack.len() / 2,
+                    );
+                    break;
+                }
+                stack.push(next);
             } else {
-                let (x, y) = top.paths[*offset];
-                let mut next_pipe = pipes.get(x).and_then(|v| v.get(y)).unwrap().clone();
-
-                *offset += 1;
-                if let Some(idx) = next_pipe.paths.iter().position(|v| *v == top.coord) {
-                    next_pipe.paths.remove(idx);
-                }
-                let is_cycle = stack.first().unwrap().0.coord == (x, y);
-
-                stack.push((next_pipe, 0));
-                if is_cycle {
-                    all_stack.push(stack.clone());
-                    stack.pop();
-                }
+                stack.pop();
             }
         }
     }
-
-    for stack in all_stack {
-        println!(
-            "start is {:?}, end is {:?}, length = {}, farthest = {}",
-            stack[0],
-            stack[stack.len() - 2],
-            stack.len(),
-            (stack.len() - 1) / 2,
-        );
-    }
-
     Ok(())
 }
 
@@ -80,15 +68,6 @@ pub enum Kind {
     SW,
     NS,
     ST,
-}
-
-#[derive(Debug, Clone)]
-pub struct Pipe {
-    kind: Kind,
-
-    coord: (usize, usize),
-
-    paths: Vec<(usize, usize)>,
 }
 
 impl Kind {
@@ -109,128 +88,105 @@ impl Kind {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Pipe {
+    kind: Kind,
+
+    coord: (usize, usize),
+
+    index: usize,
+
+    paths: Vec<(usize, usize)>,
+}
+
 impl Pipe {
     pub fn new(kind: Kind, i: usize, j: usize, kinds: &[Vec<Kind>]) -> Self {
+        let dirs = [
+            vec![],
+            vec![Dir::L, Dir::R],
+            vec![Dir::U, Dir::R],
+            vec![Dir::U, Dir::L],
+            vec![Dir::D, Dir::R],
+            vec![Dir::D, Dir::L],
+            vec![Dir::U, Dir::D],
+            vec![Dir::U, Dir::D, Dir::L, Dir::R],
+        ];
         let mut paths = vec![];
 
-        match kind {
-            Kind::GN => {}
-            Kind::ST => {
-                if i > 0 {
-                    if let Some(pipe) = kinds.get(i - 1).and_then(|v| v.get(j)) {
-                        if matches!(pipe, Kind::SW | Kind::SE | Kind::NS) {
-                            paths.push((i - 1, j));
-                        }
-                    }
-                }
-                if let Some(pipe) = kinds.get(i + 1).and_then(|v| v.get(j)) {
-                    if matches!(pipe, Kind::NW | Kind::NE | Kind::NS) {
-                        paths.push((i + 1, j));
-                    }
-                }
-                if j > 0 {
-                    if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j - 1)) {
-                        if matches!(pipe, Kind::NE | Kind::SE | Kind::EW) {
-                            paths.push((i, j - 1));
-                        }
-                    }
-                }
-                if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j + 1)) {
-                    if matches!(pipe, Kind::NW | Kind::SW | Kind::EW) {
-                        paths.push((i, j + 1));
-                    }
-                }
-            }
-            Kind::EW => {
-                if j > 0 {
-                    if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j - 1)) {
-                        if matches!(pipe, Kind::NE | Kind::SE | Kind::EW | Kind::ST) {
-                            paths.push((i, j - 1));
-                        }
-                    }
-                }
-                if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j + 1)) {
-                    if matches!(pipe, Kind::NW | Kind::SW | Kind::EW | Kind::ST) {
-                        paths.push((i, j + 1));
-                    }
-                }
-            }
-            Kind::NE => {
-                if i > 0 {
-                    if let Some(pipe) = kinds.get(i - 1).and_then(|v| v.get(j)) {
-                        if matches!(pipe, Kind::SW | Kind::SE | Kind::NS | Kind::ST) {
-                            paths.push((i - 1, j));
-                        }
-                    }
-                }
-                if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j + 1)) {
-                    if matches!(pipe, Kind::NW | Kind::SW | Kind::EW | Kind::ST) {
-                        paths.push((i, j + 1));
-                    }
-                }
-            }
-            Kind::NW => {
-                if i > 0 {
-                    if let Some(pipe) = kinds.get(i - 1).and_then(|v| v.get(j)) {
-                        if matches!(pipe, Kind::SW | Kind::SE | Kind::NS | Kind::ST) {
-                            paths.push((i - 1, j));
-                        }
-                    }
-                }
-                if j > 0 {
-                    if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j - 1)) {
-                        if matches!(pipe, Kind::NE | Kind::SE | Kind::EW | Kind::ST) {
-                            paths.push((i, j - 1));
-                        }
-                    }
-                }
-            }
-            Kind::SE => {
-                if let Some(pipe) = kinds.get(i + 1).and_then(|v| v.get(j)) {
-                    if matches!(pipe, Kind::NW | Kind::NE | Kind::NS | Kind::ST) {
-                        paths.push((i + 1, j));
-                    }
-                }
-                if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j + 1)) {
-                    if matches!(pipe, Kind::SW | Kind::NW | Kind::EW | Kind::ST) {
-                        paths.push((i, j + 1));
-                    }
-                }
-            }
-            Kind::SW => {
-                if let Some(pipe) = kinds.get(i + 1).and_then(|v| v.get(j)) {
-                    if matches!(pipe, Kind::NW | Kind::NE | Kind::NS | Kind::ST) {
-                        paths.push((i + 1, j));
-                    }
-                }
-                if j > 0 {
-                    if let Some(pipe) = kinds.get(i).and_then(|v| v.get(j - 1)) {
-                        if matches!(pipe, Kind::NE | Kind::SE | Kind::EW | Kind::ST) {
-                            paths.push((i, j - 1));
-                        }
-                    }
-                }
-            }
-            Kind::NS => {
-                if i > 0 {
-                    if let Some(pipe) = kinds.get(i - 1).and_then(|v| v.get(j)) {
-                        if matches!(pipe, Kind::SW | Kind::SE | Kind::NS | Kind::ST) {
-                            paths.push((i - 1, j));
-                        }
-                    }
-                }
-                if let Some(pipe) = kinds.get(i + 1).and_then(|v| v.get(j)) {
-                    if matches!(pipe, Kind::NW | Kind::NE | Kind::NS | Kind::ST) {
-                        paths.push((i + 1, j));
-                    }
-                }
+        for path in &dirs[kind as usize] {
+            if let Some(next) = path.next((i, j), kinds) {
+                paths.push(next);
             }
         }
-
         Self {
             kind,
             paths,
+            index: 0,
             coord: (i, j),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.index >= self.paths.len()
+    }
+
+    pub fn next_p(&mut self) -> Option<(usize, usize)> {
+        let ret = self.paths.get(self.index).copied();
+        self.index += 1;
+        ret
+    }
+
+    pub fn remove(&mut self, coord: (usize, usize)) {
+        if let Some(idx) = self.paths.iter().position(|v| *v == coord) {
+            self.paths.remove(idx);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Dir {
+    U,
+    D,
+    L,
+    R,
+}
+
+impl Dir {
+    pub fn next(&self, (i, j): (usize, usize), kinds: &[Vec<Kind>]) -> Option<(usize, usize)> {
+        match self {
+            Dir::U => {
+                if i > 0 {
+                    if let Some(kind) = kinds.get(i - 1).and_then(|v| v.get(j)) {
+                        if matches!(kind, Kind::SW | Kind::SE | Kind::NS | Kind::ST) {
+                            return Some((i - 1, j));
+                        }
+                    }
+                }
+            }
+            Dir::D => {
+                if let Some(kind) = kinds.get(i + 1).and_then(|v| v.get(j)) {
+                    if matches!(kind, Kind::NW | Kind::NE | Kind::NS | Kind::ST) {
+                        return Some((i + 1, j));
+                    }
+                }
+            }
+            Dir::L => {
+                if j > 0 {
+                    if let Some(kind) = kinds.get(i).and_then(|v| v.get(j - 1)) {
+                        if matches!(kind, Kind::NE | Kind::SE | Kind::EW | Kind::ST) {
+                            return Some((i, j - 1));
+                        }
+                    }
+                }
+            }
+            Dir::R => {
+                if let Some(kind) = kinds.get(i).and_then(|v| v.get(j + 1)) {
+                    if matches!(kind, Kind::NW | Kind::SW | Kind::EW | Kind::ST) {
+                        return Some((i, j + 1));
+                    }
+                }
+            }
+        }
+        None
     }
 }
