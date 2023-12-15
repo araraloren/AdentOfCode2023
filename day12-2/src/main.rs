@@ -16,13 +16,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .repeat(1..);
     let regex = spring.sep_once(" ".ws(), number).sep("\n");
     let records = RegexCtx::new(INPUT).ctor(&regex)?;
+    let n = 5;
     let records: Vec<_> = records
         .iter()
         .map(|(spring, number)| {
             let mut left = vec![];
             let mut right = vec![];
-            let n = std::env::args().nth(1).unwrap_or_default();
-            let n = i64::from_str_radix(&n, 10).unwrap_or(5);
 
             for i in 0..n {
                 left.extend(spring.clone());
@@ -135,28 +134,5 @@ impl Record {
 
     pub fn is_mark(&self) -> bool {
         matches!(self, Self::Mark)
-    }
-}
-
-pub fn calc_combinations(n: usize, c: usize, mut func: impl FnMut(&[usize])) {
-    let (beg, end) = (0, c);
-    let mut number: Vec<_> = (1..=c).collect();
-
-    func(&number);
-    while number[beg] != n - c + 1 {
-        let mut mt = end;
-
-        loop {
-            mt -= 1;
-            if number[mt] != n - (end - mt) + 1 {
-                number[mt] += 1;
-                break;
-            }
-        }
-        while mt + 1 != end {
-            mt += 1;
-            number[mt] = number[mt - 1] + 1;
-        }
-        func(&number);
     }
 }
