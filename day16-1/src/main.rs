@@ -3,7 +3,6 @@ use std::vec;
 use neure::prelude::*;
 
 const INPUT: &str = include_str!("../input.txt");
-const LOG: &str = include_str!("../x.log");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let es = ".".map(|_| Ok(Tile::ES));
@@ -49,32 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         lights = next;
     }
 
-    let num = neu::digit(10)
-        .repeat_one_more()
-        .map(re::map::from_str::<usize>());
-    let log_re = num
-        .sep_once(",", num)
-        .quote("(", ")")
-        .sep(",")
-        .quote("{", "}");
-
-    let values = CharsCtx::new(LOG)
-        .ignore(neu::whitespace().repeat_full())
-        .ctor(&log_re)?;
-
-    dbg!(&values);
-
-    for (x, line) in grid.iter().enumerate() {
-        for (y, _) in line.iter().enumerate() {
-            if !flags[x][y].is_empty() {
-                //print!("({}, {})", x, y);
-                if !values.contains(&(x, y)) {
-                    println!("----------- got {} {} ", x, y);
-                }
-            }
-        }
-        println!();
-    }
     let mut count = 0;
 
     for (x, line) in grid.iter().enumerate() {
